@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EIGENSIGHT — Variable-Resolution 2.5D LiDAR Perception</title>
+  
+  <!-- Fonts matching eigensight.netlify.app -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/styles.css" />
+  <!-- Three.js & OrbitControls with CDN fallback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <!-- TOP STICKY NAVBAR -->
+  <nav>
+    <div class="wrap">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>EIGENSIGHT</span>
+        <span class="brand-sub">SIH 26053 • DRDO / iDEX</span>
+      </div>
+      <div class="navlinks">
+        <a href="#cockpit">Live Cockpit</a>
+        <a href="#hero">Overview</a>
+        <a href="#concepts">Concept Library</a>
+        <a href="#pipeline">Pipeline</a>
+        <a href="#spec">Spec</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- SECTION 1: HERO (From eigensight.netlify.app) -->
+  <header class="hero" id="hero">
+    <div class="wrap">
+      <div class="hero-content">
+        <div class="kicker">
+          <span class="rule"></span>
+          AUTONOMOUS PERCEPTION · VARIABLE-RESOLUTION MAPPING
+        </div>
+        <h1>See everything nearby in detail. See everything far away in outline.</h1>
+        <p class="lede">
+          A perception pipeline that turns raw LiDAR point clouds into a foveated 2.5D elevation map — dense and precise within 10m, coarse and cheap out to 100m — so a vehicle can classify terrain and objects without drowning in points.
+        </p>
+        <div class="cta-row">
+          <a href="#cockpit" class="btn btn-primary">Open Live Cockpit</a>
+          <a href="#concepts" class="btn btn-secondary">Watch Concept Demos</a>
+        </div>
+      </div>
+      <div class="hero-stage">
+        <div class="stage">
+          <canvas id="grid-canvas"></canvas>
+          <div class="stage-legend">
+            <span><span class="swatch" style="background:var(--terrain)"></span>terrain / drivable</span>
+            <span><span class="swatch" style="background:var(--static)"></span>static obstacle</span>
+            <span><span class="swatch" style="background:var(--dynamic)"></span>dynamic object</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SECTION 2: LIVE ROVER NAVIGATION COCKPIT -->
+  <section id="cockpit" class="cockpit-section">
+    <div class="wrap-full">
+      
+      <!-- TOP ROVER INSTRUMENT COCKPIT -->
+      <div class="rover-cockpit-bar">
+        <div class="cockpit-identity">
+          <div class="live-pill"><span class="pulse-dot"></span> LIVE TELEMETRY</div>
+          <h2>UGV Navigation Deck</h2>
+        </div>
+
+        <!-- Instruments Cluster -->
+        <div class="instruments-cluster">
+          
+          <!-- 1. Heading Compass -->
+          <div class="instrument-card">
+            <div class="inst-label">HEADING (YAW)</div>
+            <div class="compass-box">
+              <div class="compass-dial" id="compass-dial">
+                <span class="compass-marker n">N</span>
+                <span class="compass-marker e">E</span>
+                <span class="compass-marker s">S</span>
+                <span class="compass-marker w">W</span>
+                <div class="compass-needle" id="compass-needle"></div>
+              </div>
+              <div class="compass-readout">
+                <span class="val" id="rover-yaw-val">045°</span>
+                <span class="dir" id="rover-dir-val">NE</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Pitch & Roll Inclinometer -->
+          <div class="instrument-card">
+            <div class="inst-label">OFF-ROAD ATTITUDE</div>
+            <div class="readout-list">
+              <div class="readout-item">
+                <span class="lbl">PITCH:</span>
+                <span class="val text-terrain" id="rover-pitch-val">+2.5°</span>
+              </div>
+              <div class="readout-item">
+                <span class="lbl">ROLL:</span>
+                <span class="val text-dynamic" id="rover-roll-val">-1.2°</span>
+              </div>
+              <div class="readout-item">
+                <span class="lbl">STEER:</span>
+                <span class="val" id="rover-steer-val">0.0°</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Odometry & Velocity -->
+          <div class="instrument-card">
+            <div class="inst-label">GPS-DENIED ODOMETRY</div>
+            <div class="readout-list">
+              <div class="readout-item">
+                <span class="lbl">POS:</span>
+                <span class="val" id="rover-pos-val">X: 0.0m Y: 0.0m</span>
+              </div>
+              <div class="readout-item">
+                <span class="lbl">SPEED:</span>
+                <span class="val text-dynamic" id="rover-speed-val">2.4 m/s (8.6 km/h)</span>
+              </div>
+              <div class="readout-item">
+                <span class="lbl">COMPUTE:</span>
+                <span class="val text-emerald" id="rover-device-mode">RTX 4060 (Edge Ready)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Model Training & Memory Reduction Badge -->
+          <div class="instrument-card card-badge">
+            <button id="btn-cv-modal" class="btn-badge" title="View 7,000 Pictures 7-Fold CV Training Diagnostics">
+              <span class="pulse-dot"></span>
+              <span>Sparse CNN: <strong>99.3% Acc (7,000 Pics)</strong> ↗</span>
+            </button>
+            <div class="pill-spec">
+              <strong>98.0%</strong> MEMORY REDUCTION
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DUAL-TIER VIEWERS: 3D WEBGL POINT CLOUD & 2.5D FOVEATED DOGMA -->
+      <div class="dual-viewers-grid">
+        
+        <!-- Viewer 1: 3D Ego-Centric Point Cloud -->
+        <div class="viewer-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="dot-icon"></span>
+              <h3>3D Ego-Centric Point Cloud Stream</h3>
+            </div>
+            <div class="panel-actions">
+              <label class="control-label">Color Mode:
+                <select id="select-color-mode" class="select-field">
+                  <option value="class">Semantic Class</option>
+                  <option value="elevation">Elevation (Z)</option>
+                  <option value="intensity">Reflectivity</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="viewer-stage" id="threejs-container">
+            <div class="viewer-hint">Drag to Orbit · Scroll to Zoom · Right-Click to Pan</div>
+          </div>
+          <div class="panel-footer">
+            <div class="legend-strip">
+              <span><span class="swatch" style="background:var(--terrain)"></span> Terrain / Dirt Path</span>
+              <span><span class="swatch" style="background:#F59E0B"></span> Rough / Curb Hazard</span>
+              <span><span class="swatch" style="background:var(--static)"></span> Static Obstacle</span>
+              <span><span class="swatch" style="background:var(--dynamic)"></span> Dynamic Object</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Viewer 2: Dual-Tier 2.5D Foveated DOGMa Map -->
+        <div class="viewer-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="dot-icon" style="background:var(--terrain)"></span>
+              <h3>Dual-Tier 2.5D DOGMa &amp; Foveated Map</h3>
+            </div>
+            <div class="panel-actions">
+              <label class="control-label">Layer:
+                <select id="select-dogma-layer" class="select-field">
+                  <option value="std">Local Variance (σz) + Far Binary</option>
+                  <option value="variance">Micro-Roughness (σz²)</option>
+                  <option value="elevation">Mean Elevation (μz)</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="viewer-stage map-canvas-wrapper">
+            <canvas id="dogma-canvas"></canvas>
+            
+            <!-- Exact Eigensight Stacking Banner from Official Demo -->
+            <div class="eigensight-live-banner" id="eigensight-banner">
+              <div class="banner-top">
+                <span class="banner-title">TEMPORAL STACKING</span>
+                <span class="banner-frame" id="banner-frame-lbl">FRAME 2/4</span>
+              </div>
+              <div class="banner-sub">
+                <div class="banner-line"><span class="tag-static">STATIC:</span> terrain, tree, lodge wall, RED CAR</div>
+                <div class="banner-line"><span class="tag-dynamic">DYNAMIC:</span> CYAN CAR</div>
+              </div>
+            </div>
+
+            <div class="fovea-overlay-tag">
+              <span class="near-tag">LOCAL FOVEA: 5cm (0 to 10m)</span>
+              <span class="far-tag">HORIZON: 50cm (10 to 100m)</span>
+            </div>
+          </div>
+          <div class="panel-footer">
+            <div class="legend-strip">
+              <span><span class="swatch" style="background:var(--terrain)"></span> Smooth Ground (σz &lt; 0.05m)</span>
+              <span><span class="swatch" style="background:#F59E0B"></span> Curb / Hazard (σz ≥ 0.08m)</span>
+              <span><span class="swatch" style="background:#334155"></span> Far-Field Binary Occupied</span>
+              <span><span class="swatch" style="background:var(--dynamic)"></span> Tracked Dynamic Velocity</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- INTERACTIVE 2.5D MAP & NON-UNIFORM GRID CALCULATION ENGINE (IEEE IV 2020) -->
+      <div class="calc-engine-section">
+        <div class="calc-engine-header">
+          <div class="calc-title">
+            <span class="pulse-dot"></span>
+            <div>
+              <h3>Interactive 2.5D Elevation &amp; Non-Uniform Grid Calculation Engine</h3>
+              <span class="paper-sub">Real-Time Mathematical Pipeline: Welford Micro-Variance &middot; Buerkle et al. 9-Partition Architecture</span>
+            </div>
+          </div>
+          <div class="calc-actions">
+            <span class="lbl-small">SEGMENTATION MODEL:</span>
+            <div class="model-toggle-group">
+              <button id="btn-model-transfer" class="btn-toggle active" title="SOTA Pretrained MobileNetV3 Transfer Learning">
+                <span class="dot-indicator"></span> SOTA Transfer Learning (MobileNetV3)
+              </button>
+              <button id="btn-model-sparse" class="btn-toggle" title="NoiseRobustSparseCNN (99.3% CV on 7,000 Pictures)">
+                <span class="dot-indicator"></span> Trained Sparse CNN (7,000 Pics)
+              </button>
+            </div>
+            <div class="density-chip" title="Active LiDAR Point Generation Density">
+              <span class="chip-num">1.31M</span> pts/s (64-Beam LiDAR)
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-cards-grid">
+          
+          <!-- Card 1: Local Grid 5cm Cell Elevation Welford Calculator -->
+          <div class="calc-card">
+            <div class="calc-card-header">
+              <div class="calc-card-title">
+                <span class="icon-tag">STAGE 3</span>
+                <h4>Local Grid Micro-Terrain Analysis (0 to 10m @ 5cm)</h4>
+              </div>
+              <span class="badge-accent">Welford Streaming Algorithm</span>
+            </div>
+            
+            <div class="calc-card-body">
+              <div class="calc-visual-container">
+                <canvas id="welford-anim-canvas" width="340" height="150"></canvas>
+                <div class="calc-visual-overlay">
+                  <span class="cell-tag">Cell (i, j) = (204, 198) [5cm &times; 5cm]</span>
+                  <span id="calc-terrain-badge" class="badge-status status-hazard">CURB HAZARD (&sigma;z &ge; 0.08m)</span>
+                </div>
+              </div>
+
+              <div class="calc-math-grid">
+                <div class="math-box">
+                  <div class="math-label mono">POINT SAMPLES (N)</div>
+                  <div class="math-val mono text-dynamic" id="calc-n-samples">32 pts</div>
+                  <div class="math-formula">Cell Density &rho;</div>
+                </div>
+                <div class="math-box">
+                  <div class="math-label mono">MEAN ELEVATION (&mu;z)</div>
+                  <div class="math-val mono" id="calc-mean-z">+0.142 m</div>
+                  <div class="math-formula">&mu; = &Sigma;z / N</div>
+                </div>
+                <div class="math-box">
+                  <div class="math-label mono">ELEVATION VARIANCE (&sigma;z&sup2;)</div>
+                  <div class="math-val mono text-terrain" id="calc-var-z">0.0078 m&sup2;</div>
+                  <div class="math-formula">&sigma;&sup2; = &Sigma;(z - &mu;)&sup2; / (N-1)</div>
+                </div>
+                <div class="math-box">
+                  <div class="math-label mono">MICRO-ROUGHNESS (&sigma;z)</div>
+                  <div class="math-val mono text-hazard" id="calc-std-z">0.088 m</div>
+                  <div class="math-formula">&sigma; = &radic;&sigma;&sup2; [Roughness Metric]</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="calc-card-footer">
+              <div class="threshold-legend">
+                <span class="th-item"><span class="swatch" style="background:var(--emerald)"></span> Smooth (&sigma;z &lt; 0.04m)</span>
+                <span class="th-item"><span class="swatch" style="background:var(--terrain)"></span> Mild Undulation (0.04 - 0.08m)</span>
+                <span class="th-item"><span class="swatch" style="background:#F59E0B"></span> Curb / Negative Hazard (&ge; 0.08m)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Far-Field Non-Uniform Occupancy & Dempster-Shafer -->
+          <div class="calc-card">
+            <div class="calc-card-header">
+              <div class="calc-card-title">
+                <span class="icon-tag" style="background:#8B5CF6">STAGE 4</span>
+                <h4>Far-Away Zones Non-Uniform Mapping (10 to 100m)</h4>
+              </div>
+              <span class="badge-accent" style="border-color:#8B5CF6; color:#C4B5FD">Buerkle et al. IEEE IV 2020</span>
+            </div>
+
+            <div class="calc-card-body">
+              <div class="calc-visual-container">
+                <canvas id="nonuniform-anim-canvas" width="340" height="150"></canvas>
+                <div class="calc-visual-overlay">
+                  <span class="cell-tag">Non-Uniform 9-Partition (X0..X8)</span>
+                  <span class="badge-status status-saving">96.0% Memory Saved</span>
+                </div>
+              </div>
+
+              <div class="calc-math-grid">
+                <div class="math-box">
+                  <div class="math-label mono">UNIFORM 5cm CELLS</div>
+                  <div class="math-val mono text-muted">16,000,000</div>
+                  <div class="math-formula">128.0 MB Base Memory</div>
+                </div>
+                <div class="math-box">
+                  <div class="math-label mono">BUERKLE NON-UNIFORM</div>
+                  <div class="math-val mono text-dynamic">640,000</div>
+                  <div class="math-formula">5.1 MB Compressed</div>
+                </div>
+                <div class="math-box">
+                  <div class="math-label mono">MEMORY REDUCTION</div>
+                  <div class="math-val mono text-emerald">96.0 %</div>
+                  <div class="math-formula">No &sigma;z&sup2; Stored in Far Tiers</div>
+                </div>
+                <div class="math-box">
+                  <div class="math-label mono">OCCUPANCY STATE</div>
+                  <div class="math-val mono text-purple" id="calc-belief-state">Dempster-Shafer (D/S/F)</div>
+                  <div class="math-formula">m(F) + m(S) + m(D) = 1.0</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="calc-card-footer">
+              <div class="threshold-legend">
+                <span class="th-item"><span class="swatch" style="background:#3B82F6"></span> Dynamic (D)</span>
+                <span class="th-item"><span class="swatch" style="background:#EF4444"></span> Static (S)</span>
+                <span class="th-item"><span class="swatch" style="background:#10B981"></span> Free Space (F)</span>
+                <span class="th-item"><span class="swatch" style="background:#1E293B"></span> Unknown (&Omega;)</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- BOTTOM CONTROL DECK & STAGE TELEMETRY -->
+      <div class="bottom-control-deck">
+        
+        <!-- Controls: WASD & Autonomous Patrol -->
+        <div class="control-card">
+          <div class="card-title">ROVER DRIVING DECK</div>
+          <div class="driving-buttons">
+            <div class="btn-row"><button id="btn-drive-fwd" class="drive-btn" title="Drive Forward (W)">▲ FWD</button></div>
+            <div class="btn-row">
+              <button id="btn-steer-left" class="drive-btn" title="Steer Left (A)">◄ LEFT</button>
+              <button id="btn-patrol" class="drive-btn btn-patrol" title="Autonomous Recon Patrol">PATROL</button>
+              <button id="btn-steer-right" class="drive-btn" title="Steer Right (D)">RIGHT ►</button>
+            </div>
+            <div class="btn-row"><button id="btn-drive-rev" class="drive-btn" title="Reverse (S)">▼ REV</button></div>
+          </div>
+        </div>
+
+        <!-- Scenario Selector & Playback -->
+        <div class="control-card">
+          <div class="card-title">EVALUATION SCENARIO</div>
+          <div class="scenario-controls">
+            <select id="select-scenario" class="select-field w-full">
+              <option value="eigensight_stacking" selected>Eigensight Stacking Demo (Dirt Path, Tree, Red &amp; Cyan Car)</option>
+              <option value="military_recon">Military Recon Patrol (Rough Terrain)</option>
+              <option value="urban_crosswalk">Urban Crosswalk &amp; Curbs</option>
+              <option value="extreme_range">Extreme Range Dual-Tier (100m)</option>
+            </select>
+            <div class="playback-buttons">
+              <button id="btn-play" class="action-btn">▶ Play</button>
+              <button id="btn-pause" class="action-btn">⏸ Pause</button>
+              <button id="btn-step" class="action-btn">⏭ Step</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Perception Pipeline Telemetry -->
+        <div class="control-card flex-2">
+          <div class="card-title">FOUR-STAGE LATENCY BREAKDOWN</div>
+          <div class="latency-grid">
+            <div class="lat-item">
+              <span class="num">01</span>
+              <div>
+                <div class="name">Temporal Stacking (CPU)</div>
+                <div class="time" id="t-stage1">0.4 ms</div>
+              </div>
+            </div>
+            <div class="lat-item">
+              <span class="num">02</span>
+              <div>
+                <div class="name">Sparse CNN (Kernels 7, 5)</div>
+                <div class="time" id="t-stage2">2.1 ms</div>
+              </div>
+            </div>
+            <div class="lat-item">
+              <span class="num">03</span>
+              <div>
+                <div class="name">Variable Grid Quantisation</div>
+                <div class="time" id="t-stage3">0.8 ms</div>
+              </div>
+            </div>
+            <div class="lat-item">
+              <span class="num">04</span>
+              <div>
+                <div class="name">Welford 2.5D DOGMa</div>
+                <div class="time" id="t-stage4">1.2 ms</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- SECTION 3: CONCEPT LIBRARY (Authentic Videos & Metadata from eigensight.netlify.app) -->
+  <section id="concepts" class="concepts-section">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">CONCEPT LIBRARY</div>
+        <h2>Four ideas, four working demonstrations</h2>
+        <p>Directly from the Eigensight research framework. Each pipeline stage has an authentic working visualization of the exact physical mechanism it relies on.</p>
+      </div>
+
+      <div class="concept-list">
+
+        <!-- Concept 1: Semantic Segmentation -->
+        <article class="concept" id="concept-segmentation">
+          <div class="concept-media">
+            <div class="demo-frame">
+              <video controls playsinline preload="metadata" src="/static/videos/segmentation.mp4"></video>
+            </div>
+          </div>
+          <div class="concept-copy">
+            <div class="concept-tag c-static">STAGE 01 · SEMANTIC SEGMENTATION</div>
+            <h3>Classifying every point as static or dynamic</h3>
+            <p>
+              Point clusters are labeled frame by frame and temporally stacked to confirm the label holds over time. The tree, wall, and red car stay static throughout; the yellow object is reclassified to dynamic the moment it starts moving. This is the raw output of pipeline stage 01, before anything is projected into a grid.
+            </p>
+            <div class="demo-legend">
+              <span><span class="swatch" style="background:var(--static)"></span> static: tree, wall, red car</span>
+              <span><span class="swatch" style="background:var(--dynamic)"></span> dynamic: cyan car</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Concept 2: Terrain-Aware Stacking -->
+        <article class="concept reverse" id="concept-stacking">
+          <div class="concept-media">
+            <div class="demo-frame">
+              <video controls playsinline preload="metadata" src="/static/videos/stacking.mp4"></video>
+            </div>
+          </div>
+          <div class="concept-copy">
+            <div class="concept-tag c-terrain">STAGE 02 · TERRAIN-AWARE STACKING</div>
+            <h3>The same classification, now against real ground</h3>
+            <p>
+              Identical object classes, but placed on textured terrain — grass either side of a dirt path — instead of an empty black plane. It's the check for stage 01 of the terrain-analysis task: can the model still separate static and dynamic objects cleanly once the drivable surface itself is noisy and visually busy underneath them?
+            </p>
+            <div class="demo-legend">
+              <span><span class="swatch" style="background:var(--terrain)"></span> terrain: grass, dirt path</span>
+              <span><span class="swatch" style="background:var(--static)"></span> static: tree, wall, red car</span>
+              <span><span class="swatch" style="background:var(--dynamic)"></span> dynamic: cyan car</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Concept 3: Variable-Resolution Grid -->
+        <article class="concept" id="concept-grid">
+          <div class="concept-media">
+            <div class="demo-frame">
+              <video controls playsinline preload="metadata" src="/static/videos/variable_grid.mp4"></video>
+            </div>
+          </div>
+          <div class="concept-copy">
+            <div class="concept-tag c-dynamic">STAGE 03 · VARIABLE-RESOLUTION GRID</div>
+            <h3>Coarse globally, fine where it matters</h3>
+            <p>
+              The non-uniform grid itself: a 10m coarse cell spans the full scene, while a 5cm local grid overlays the region immediately around the objects of interest. This is the literal foveation mechanic from the project background — precision spent near the sensor, cost saved everywhere else.
+            </p>
+            <div class="demo-legend">
+              <span><span class="swatch" style="background:var(--muted-2)"></span> global: 10m coarse cells</span>
+              <span><span class="swatch" style="background:var(--dynamic)"></span> local: 5cm fine cells</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Concept 4: 3D -> 2.5D Height Collapse -->
+        <article class="concept reverse" id="concept-2_5d">
+          <div class="concept-media">
+            <div class="demo-frame">
+              <video controls playsinline preload="metadata" src="/static/videos/height_collapse_2_5d.mp4"></video>
+            </div>
+          </div>
+          <div class="concept-copy">
+            <div class="concept-tag c-static">STAGE 04 · 3D → 2.5D HEIGHT COLLAPSE</div>
+            <h3>Flattening volume onto the ground plane, without losing it</h3>
+            <p>
+              3D point volumes get dropped onto the flat XY plane one occupied cell at a time. Inside 10m, the local 5cm grid keeps individual cells; beyond it, points fall back to sparse dots while the cell still retains mean height, standard deviation, and variance — so elevation isn't discarded, just compressed as distance grows. This is stage 02 of the pipeline in motion.
+            </p>
+            <div class="demo-legend">
+              <span><span class="swatch" style="background:var(--static)"></span> static: red car</span>
+              <span><span class="swatch" style="background:var(--dynamic)"></span> dynamic: cyan car</span>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 4: SPECIFICATION & ACCURACY (From eigensight.netlify.app) -->
+  <section id="spec">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">GRID SPECIFICATION</div>
+        <h2>Resolution falls off the way it should — gradually, and by design</h2>
+      </div>
+      <div class="spec-wrap">
+        <div>
+          <div class="zone-bar"></div>
+          <div class="zone-labels"><span>0m — near field</span><span>10m</span><span>100m — far field</span></div>
+          <table>
+            <thead><tr><th>Zone</th><th>Radius</th><th>Cell size</th><th>Elevation Statistics</th></tr></thead>
+            <tbody>
+              <tr><td>Near field (Fovea)</td><td class="dim">0 – 10m</td><td>5cm</td><td>Mean (μz), Variance (σz²), StdDev (σz)</td></tr>
+              <tr><td>Far field (Horizon)</td><td class="dim">10 – 100m</td><td>50cm</td><td>Strictly Binary Occupied vs Free (1 / 0)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <p class="metric-note">The engine maintains this spatial gradient without <strong>alignment errors</strong> at zone boundaries or <strong>data loss</strong> when multiple points fall into a coarsened far-field cell — both are correctness requirements, not just performance ones.</p>
+          <p class="metric-note">Evaluation targets two things directly: <strong>98.0% memory reduction</strong> against a uniform high-resolution 3D baseline, and <strong>classification accuracy by distance band</strong> on 7,000 picture scenes.</p>
+          <p class="metric-note">Latency is reported in FPS, measured end-to-end from raw point cloud to rendered dashboard frame.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap">
+      <p>EIGENSIGHT — FOVEATED 2.5D MAPPING FOR AUTONOMOUS PERCEPTION</p>
+      <p>SMART INDIA HACKATHON 2026 · PROBLEM STATEMENT #26053 · DRDO / iDEX</p>
+    </div>
+  </footer>
+
+  <!-- 7-FOLD CROSS-VALIDATION MODAL -->
+  <div id="cv-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>7,000 Pictures: Sparse CNN 7-Fold Cross Validation</h3>
+          <span class="modal-sub">Trained on NVIDIA GeForce RTX 4060 GPU with AdamW (No Regularization)</span>
+        </div>
+        <button id="btn-close-modal" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="metrics-cards-row">
+          <div class="metric-chip">
+            <span class="chip-lbl">Pictures Evaluated</span>
+            <span class="chip-val" id="m-pictures">7,000</span>
+          </div>
+          <div class="metric-chip">
+            <span class="chip-lbl">Total 3D Points</span>
+            <span class="chip-val" id="m-points">3,584,000</span>
+          </div>
+          <div class="metric-chip">
+            <span class="chip-lbl">Mean Val Accuracy</span>
+            <span class="chip-val text-emerald" id="m-val-acc">99.28%</span>
+          </div>
+          <div class="metric-chip">
+            <span class="chip-lbl">Generalization Gap</span>
+            <span class="chip-val text-cyan" id="m-gap">0.0075</span>
+          </div>
+          <div class="metric-chip">
+            <span class="chip-lbl">Diagnosis</span>
+            <span class="chip-val text-emerald" id="m-diagnosis">NO OVERFITTING</span>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <img src="/static/k7_cross_validation_results.png" alt="7-Fold CV Curves" class="cv-chart-img" />
+        </div>
+
+        <div class="cv-fold-table-wrap">
+          <table class="cv-table">
+            <thead>
+              <tr><th>Fold</th><th>Train Loss</th><th>Val Loss</th><th>Train Acc</th><th>Val Acc</th><th>Generalization Gap</th></tr>
+            </thead>
+            <tbody id="cv-tbody">
+              <!-- Populated by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

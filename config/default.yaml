@@ -1,0 +1,27 @@
+local:
+  radius_m: 10.0
+  resolution_m: 0.05
+
+global:
+  radius_m: 100.0
+  resolution_m: 0.50
+
+temporal:
+  max_frames: 3
+
+semantic:
+  model_architecture: "spvcnn" # options: "spvcnn" (5.5M), "spvnas" (3.3M), "mock"
+  terrain_label: 0
+  static_label: 1
+  dynamic_label: 2
+  confidence_threshold: 0.40
+
+kinematics:
+  dbscan_eps: 1.0
+  dbscan_min_samples: 3
+  max_association_distance: 3.0
+  velocity_noise_threshold_mps: 0.3 # Minimum speed to confirm active movement
+
+terrain:
+  min_samples: 3
+  variance_threshold: 0.0064

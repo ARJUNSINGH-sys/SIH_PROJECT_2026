@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sih26053_perception"
+version = "0.1.0"
+description = "Spatiotemporal 2.5D Perception Engine for UGVs in GPS-Denied Terrains (SIH 26053)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.23.0",
+    "scikit-learn>=1.0.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.5.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+pythonpath = [
+    "src",
+]

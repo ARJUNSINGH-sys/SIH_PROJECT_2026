@@ -1,0 +1,75 @@
+{
+  "dataset": "Eigensight 7,000 High-Quality Non-Sequential Pictures",
+  "total_pictures": 7000,
+  "points_evaluated": 3584000,
+  "k_folds": 7,
+  "epochs_per_fold": 4,
+  "mean_train_loss": 0.0131,
+  "mean_val_loss": 0.0205,
+  "mean_val_accuracy": 99.28,
+  "mean_val_accuracy_pct": 99.28,
+  "mean_generalization_gap": 0.0075,
+  "overfitting_diagnosis": "HEALTHY GENERALIZATION (NO OVERFITTING)",
+  "optimizer": "AdamW (weight_decay=0.0, lr=0.001)",
+  "regularization": "Zero (No Dropout, No Weight Decay)",
+  "hardware": "cuda",
+  "device_name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "fold_breakdown": [
+    {
+      "fold": 1,
+      "train_loss": 0.0128,
+      "val_loss": 0.0133,
+      "train_acc": 99.55,
+      "val_acc": 99.51,
+      "generalization_gap": 0.0004
+    },
+    {
+      "fold": 2,
+      "train_loss": 0.0135,
+      "val_loss": 0.0164,
+      "train_acc": 99.52,
+      "val_acc": 99.42,
+      "generalization_gap": 0.0029
+    },
+    {
+      "fold": 3,
+      "train_loss": 0.0132,
+      "val_loss": 0.0219,
+      "train_acc": 99.54,
+      "val_acc": 99.24,
+      "generalization_gap": 0.0087
+    },
+    {
+      "fold": 4,
+      "train_loss": 0.0131,
+      "val_loss": 0.0333,
+      "train_acc": 99.54,
+      "val_acc": 98.78,
+      "generalization_gap": 0.0202
+    },
+    {
+      "fold": 5,
+      "train_loss": 0.0118,
+      "val_loss": 0.0128,
+      "train_acc": 99.57,
+      "val_acc": 99.54,
+      "generalization_gap": 0.001
+    },
+    {
+      "fold": 6,
+      "train_loss": 0.0134,
+      "val_loss": 0.0183,
+      "train_acc": 99.54,
+      "val_acc": 99.36,
+      "generalization_gap": 0.0049
+    },
+    {
+      "fold": 7,
+      "train_loss": 0.0137,
+      "val_loss": 0.0277,
+      "train_acc": 99.52,
+      "val_acc": 99.09,
+      "generalization_gap": 0.0141
+    }
+  ]
+}
